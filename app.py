@@ -25,8 +25,6 @@ st.markdown(
     ''',
     unsafe_allow_html=True
 )
-(page_title="דשבורד סקר חברתי", layout="wide")
-st.title("📊 דשבורד סקר חברתי")
 
 @st.cache_data
 def load_data():
