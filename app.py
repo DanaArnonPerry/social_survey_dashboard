@@ -4,6 +4,28 @@ import plotly.express as px
 import io
 
 st.set_page_config(page_title="דשבורד סקר חברתי", layout="wide")
+
+st.markdown(
+    '''
+    <link href="https://fonts.googleapis.com/css2?family=Assistant&display=swap" rel="stylesheet">
+    <style>
+    html, body, [class*="css"] {
+        direction: rtl;
+        text-align: right;
+        font-family: 'Assistant', sans-serif;
+    }
+    .stDataFrame table {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+    .stDownloadButton, .stButton {
+        float: right;
+    }
+    </style>
+    ''',
+    unsafe_allow_html=True
+)
+(page_title="דשבורד סקר חברתי", layout="wide")
 st.title("📊 דשבורד סקר חברתי")
 
 @st.cache_data
