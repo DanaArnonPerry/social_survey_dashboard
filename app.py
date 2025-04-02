@@ -1,12 +1,11 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import io
 
 st.set_page_config(page_title="דשבורד סקר חברתי", layout="wide")
 
 st.markdown(
-    '''
+    """
     <link href="https://fonts.googleapis.com/css2?family=Assistant&display=swap" rel="stylesheet">
     <style>
     html, body, [class*="css"] {
@@ -18,11 +17,8 @@ st.markdown(
         direction: rtl !important;
         text-align: right !important;
     }
-    .stDownloadButton, .stButton {
-        float: right;
-    }
     </style>
-    ''',
+    """,
     unsafe_allow_html=True
 )
 
@@ -30,79 +26,100 @@ st.markdown(
 def load_data():
     return pd.read_excel("סקר חברתי.xlsx")
 
+def render_bar_table(df, label_col, value_col):
+    max_val = df[value_col].max()
+    df = df.sort_values(value_col, ascending=False).reset_index(drop=True)
+    table_html = "<div style='width:100%'>"
+    medals = ['🥇', '🥈', '🥉']
+
+    for i, row in df.iterrows():
+        label = row[label_col]
+        val = row[value_col]
+        percent = int((val / max_val) * 100)
+
+        if i == 0:
+            icon = medals[0]
+            bar_color = "#FFD700"
+        elif i == 1:
+            icon = medals[1]
+            bar_color = "#C0C0C0"
+        elif i == 2:
+            icon = medals[2]
+            bar_color = "#cd7f32"
+        elif i >= len(df) - 3:
+            icon = "🔻"
+            bar_color = "#FF4B4B"
+        else:
+            icon = f"{i+1}"
+            bar_color = "#1f77b4"
+
+        table_html += f"""
+            <div style='margin:6px 0'>
+                <strong>{icon} {label}</strong>
+                <div style='background:#eee; width:100%; height:20px; position:relative; border-radius:4px; overflow:hidden'>
+                    <div style='width:{percent}%; background:{bar_color}; height:100%;'></div>
+                    <div style='position:absolute; right:8px; top:0; height:100%; line-height:20px; font-size:13px; color:#000;'>{val:.0f}</div>
+                </div>
+            </div>
+        """
+    table_html += "</div>"
+    st.markdown(table_html, unsafe_allow_html=True)
+
 df = load_data()
 
-if "שם  הרשות" not in df.columns or "שנה" not in df.columns:
-    st.error("יש לוודא שהקובץ כולל עמודות 'שם  הרשות' ו-'שנה'")
-else:
-    with st.sidebar:
-        st.header("🎛️ מסננים")
-        selected_cities = st.multiselect("בחר רשויות מקומיות", options=sorted(df["שם  הרשות"].dropna().unique()))
-        selected_years = st.multiselect("בחר שנים", options=sorted(df["שנה"].dropna().unique()))
-        search_term = st.text_input("🔍 חיפוש בטקסט")
+if "שנה" not in df.columns or "שם  הרשות" not in df.columns:
+    st.error("יש לוודא שהקובץ כולל את העמודות 'שנה' ו-'שם  הרשות'")
+    st.stop()
 
-    filtered_df = df.copy()
-    if selected_cities:
-        filtered_df = filtered_df[filtered_df["שם  הרשות"].isin(selected_cities)]
-    if selected_years:
-        filtered_df = filtered_df[filtered_df["שנה"].isin(selected_years)]
-    if search_term:
-        filtered_df = filtered_df[filtered_df.astype(str).apply(lambda x: x.str.contains(search_term, case=False, na=False)).any(axis=1)]
+numeric_cols = [col for col in df.select_dtypes(include='number').columns if col != "שנה"]
 
-    st.subheader("📄 טבלת נתונים")
-    st.dataframe(filtered_df, use_container_width=True)
+tab1, tab2 = st.tabs(["📊 סקירה כללית", "🏆 השוואת ערים"])
 
-    numeric_cols = filtered_df.select_dtypes(include='number').columns.tolist()
-    if numeric_cols:
-        st.subheader("📈 גרף משתנה מספרי")
-        selected_column = st.selectbox("בחר משתנה לגרף", numeric_cols)
-        chart_data = filtered_df.groupby("שם  הרשות")[selected_column].mean().sort_values(ascending=False)
-        st.bar_chart(chart_data)
+with tab1:
+    st.header("✨ סקירה כללית על סקר חברתי")
+    latest_year = df["שנה"].max()
+    prev_year = sorted(df["שנה"].unique())[-2] if len(df["שנה"].unique()) > 1 else None
 
-        st.subheader("📉 גרף מגמה לאורך זמן")
-        line_var = st.selectbox("בחר משתנה למגמה", numeric_cols, key="line_chart")
-        line_df = filtered_df.groupby(["שנה", "שם  הרשות"])[line_var].mean().reset_index()
-        pivot_df = line_df.pivot(index="שנה", columns="שם  הרשות", values=line_var)
-        st.line_chart(pivot_df)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("📈 ממוצעים לפי שנה אחרונה")
+        mean_latest = df[df["שנה"] == latest_year][numeric_cols].mean().sort_values(ascending=False)
+        st.dataframe(mean_latest.round(1))
 
-        st.subheader("🏅 דירוג הרשויות")
-        latest_year = filtered_df["שנה"].max()
-        rank_df = filtered_df[filtered_df["שנה"] == latest_year]
-        rank_summary = rank_df.groupby("שם  הרשות")[selected_column].mean().sort_values(ascending=False)
-        st.dataframe(rank_summary.reset_index(), use_container_width=True)
+    with col2:
+        if prev_year:
+            st.subheader(f"📊 שינוי בין {prev_year} ל-{latest_year}")
+            prev = df[df["שנה"] == prev_year][numeric_cols].mean()
+            change = ((mean_latest - prev) / prev * 100).round(1)
+            change_df = pd.DataFrame({"אחוז שינוי": change}).sort_values("אחוז שינוי", ascending=False)
+            st.dataframe(change_df)
 
-        st.subheader("📊 אחוז שינוי משנה קודמת")
-        change_var = st.selectbox("בחר משתנה לשינוי", numeric_cols, key="change")
-        year_sorted = sorted(filtered_df["שנה"].dropna().unique())
-        if len(year_sorted) >= 2:
-            last, prev = year_sorted[-1], year_sorted[-2]
-            df_last = filtered_df[filtered_df["שנה"] == last].groupby("שם  הרשות")[change_var].mean()
-            df_prev = filtered_df[filtered_df["שנה"] == prev].groupby("שם  הרשות")[change_var].mean()
-            change_df = pd.DataFrame({"שנה קודמת": df_prev, "שנה נוכחית": df_last}).dropna()
-            change_df["אחוז שינוי"] = ((change_df["שנה נוכחית"] - change_df["שנה קודמת"]) / change_df["שנה קודמת"]) * 100
+    st.subheader("🥧 גרף עוגה לדוגמה")
+    example_col = numeric_cols[0]
+    pie_data = df[df["שנה"] == latest_year].groupby("שם  הרשות")[example_col].mean().reset_index()
+    fig = px.pie(pie_data, names="שם  הרשות", values=example_col, title=f"פילוח לפי {example_col}")
+    st.plotly_chart(fig)
 
-            def color_change(val):
-                if val > 0:
-                    return 'color: green'
-                elif val < 0:
-                    return 'color: red'
-                return ''
+with tab2:
+    st.title("🏆 השוואת ערים לפי מדדים")
+    selected_metrics = st.multiselect("בחר עד 3 מדדים להצגה", options=numeric_cols, max_selections=3)
 
-            styled_df = change_df.reset_index().style.format({"אחוז שינוי": "{:.2f}%"}).applymap(color_change, subset=["אחוז שינוי"])
-            st.dataframe(styled_df, use_container_width=True)
+    if not selected_metrics:
+        st.info("בחר מדד אחד לפחות להצגה.")
+    else:
+        for metric in selected_metrics:
+            st.markdown(f"### 📈 {metric}")
+            col1, col2 = st.columns([2, 1])
 
-        st.subheader("🥧 גרף עוגה לפי קטגוריה")
-        cat_cols = filtered_df.select_dtypes(include='object').columns.tolist()
-        if cat_cols:
-            cat_col = st.selectbox("בחר קטגוריה", cat_cols)
-            pie_data = filtered_df[cat_col].value_counts().reset_index()
-            pie_data.columns = [cat_col, "כמות"]
-            fig = px.pie(pie_data, names=cat_col, values="כמות", title=f"פילוח לפי {cat_col}")
-            st.plotly_chart(fig)
+            with col1:
+                line_df = df.groupby(["שנה"], as_index=False)[metric].mean()
+                fig = px.line(line_df, x="שנה", y=metric, markers=True, title=f"מגמת שינוי ב-{metric}")
+                st.plotly_chart(fig, use_container_width=True)
 
-    # הורדה כקובץ אקסל
-    st.subheader("📥 הורדת נתונים")
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-        filtered_df.to_excel(writer, index=False, sheet_name="נתונים מסוננים")
-    st.download_button("📤 הורד כ-Excel", data=buffer.getvalue(), file_name="סקר_חברתי_מסונן.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            with col2:
+                rank_df = df[df["שנה"] == latest_year][["שם  הרשות", metric]].dropna()
+                rank_df = rank_df.groupby("שם  הרשות")[metric].mean().sort_values(ascending=False).reset_index()
+                rank_df.columns = ["רשות", "ציון"]
+                render_bar_table(rank_df, label_col="רשות", value_col="ציון")
+
+        st.success("הנתונים מוצגים לפי בחירתך.")
