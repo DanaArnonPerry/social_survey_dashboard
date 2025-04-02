@@ -32,18 +32,18 @@ def load_data():
 
 df = load_data()
 
-if "רשות מקומית" not in df.columns or "שנה" not in df.columns:
-    st.error("יש לוודא שהקובץ כולל עמודות 'רשות מקומית' ו-'שנה'")
+if "שם  הרשות" not in df.columns or "שנה" not in df.columns:
+    st.error("יש לוודא שהקובץ כולל עמודות 'שם  הרשות' ו-'שנה'")
 else:
     with st.sidebar:
         st.header("🎛️ מסננים")
-        selected_cities = st.multiselect("בחר רשויות מקומיות", options=sorted(df["רשות מקומית"].dropna().unique()))
+        selected_cities = st.multiselect("בחר רשויות מקומיות", options=sorted(df["שם  הרשות"].dropna().unique()))
         selected_years = st.multiselect("בחר שנים", options=sorted(df["שנה"].dropna().unique()))
         search_term = st.text_input("🔍 חיפוש בטקסט")
 
     filtered_df = df.copy()
     if selected_cities:
-        filtered_df = filtered_df[filtered_df["רשות מקומית"].isin(selected_cities)]
+        filtered_df = filtered_df[filtered_df["שם  הרשות"].isin(selected_cities)]
     if selected_years:
         filtered_df = filtered_df[filtered_df["שנה"].isin(selected_years)]
     if search_term:
@@ -56,19 +56,19 @@ else:
     if numeric_cols:
         st.subheader("📈 גרף משתנה מספרי")
         selected_column = st.selectbox("בחר משתנה לגרף", numeric_cols)
-        chart_data = filtered_df.groupby("רשות מקומית")[selected_column].mean().sort_values(ascending=False)
+        chart_data = filtered_df.groupby("שם  הרשות")[selected_column].mean().sort_values(ascending=False)
         st.bar_chart(chart_data)
 
         st.subheader("📉 גרף מגמה לאורך זמן")
         line_var = st.selectbox("בחר משתנה למגמה", numeric_cols, key="line_chart")
-        line_df = filtered_df.groupby(["שנה", "רשות מקומית"])[line_var].mean().reset_index()
-        pivot_df = line_df.pivot(index="שנה", columns="רשות מקומית", values=line_var)
+        line_df = filtered_df.groupby(["שנה", "שם  הרשות"])[line_var].mean().reset_index()
+        pivot_df = line_df.pivot(index="שנה", columns="שם  הרשות", values=line_var)
         st.line_chart(pivot_df)
 
         st.subheader("🏅 דירוג הרשויות")
         latest_year = filtered_df["שנה"].max()
         rank_df = filtered_df[filtered_df["שנה"] == latest_year]
-        rank_summary = rank_df.groupby("רשות מקומית")[selected_column].mean().sort_values(ascending=False)
+        rank_summary = rank_df.groupby("שם  הרשות")[selected_column].mean().sort_values(ascending=False)
         st.dataframe(rank_summary.reset_index(), use_container_width=True)
 
         st.subheader("📊 אחוז שינוי משנה קודמת")
@@ -76,8 +76,8 @@ else:
         year_sorted = sorted(filtered_df["שנה"].dropna().unique())
         if len(year_sorted) >= 2:
             last, prev = year_sorted[-1], year_sorted[-2]
-            df_last = filtered_df[filtered_df["שנה"] == last].groupby("רשות מקומית")[change_var].mean()
-            df_prev = filtered_df[filtered_df["שנה"] == prev].groupby("רשות מקומית")[change_var].mean()
+            df_last = filtered_df[filtered_df["שנה"] == last].groupby("שם  הרשות")[change_var].mean()
+            df_prev = filtered_df[filtered_df["שנה"] == prev].groupby("שם  הרשות")[change_var].mean()
             change_df = pd.DataFrame({"שנה קודמת": df_prev, "שנה נוכחית": df_last}).dropna()
             change_df["אחוז שינוי"] = ((change_df["שנה נוכחית"] - change_df["שנה קודמת"]) / change_df["שנה קודמת"]) * 100
 
